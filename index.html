@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NSI-Hub 🎮</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💀</text></svg>">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            'pixel': ['"Press Start 2P"', 'monospace'],
+            'orbitron': ['Orbitron', 'monospace'],
+            'mono': ['"Share Tech Mono"', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@400;600;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="style.css">
+  <!-- Leaflet.js (carte OSM) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+
+<body class="bg-[#05050f] text-[#e0e0ff] font-orbitron overflow-x-hidden">
+
+  <!-- PAGE AUTH -->
+  <div id="authPage" class="min-h-screen flex items-center justify-center relative overflow-hidden">
+    <div class="auth-grid"></div>
+    <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+      <div class="w-96 h-96 rounded-full" style="background: radial-gradient(circle, rgba(0,212,255,0.06) 0%, transparent 70%)"></div>
+    </div>
+    <div class="relative z-10 w-full max-w-md px-6">
+      <div class="text-center mb-10">
+        <div class="mb-3"><span class="font-pixel text-3xl neon-text-cyan neon-flicker">NSI</span></div>
+        <div class="mb-4"><span class="font-pixel text-3xl neon-text-green">HUB</span></div>
+        <p class="font-mono text-sm text-[#4a5580]">// hub privé pour les vrais 😈</p>
+      </div>
+      <div class="flex mb-5 bg-[#0a0a1a] rounded-xl p-1 border border-[rgba(0,212,255,0.1)]">
+        <button id="tabLogin" onclick="showTab('login')" class="flex-1 py-2.5 rounded-lg text-xs font-bold tracking-widest transition-all tab-active">CONNEXION</button>
+        <button id="tabRegister" onclick="showTab('register')" class="flex-1 py-2.5 rounded-lg text-xs font-bold tracking-widest transition-all text-[#4a5580]">INSCRIPTION</button>
+      </div>
+      <!-- Connexion -->
+      <div id="formLogin" class="card space-y-4">
+        <div>
+          <label class="text-xs text-[#4a5580] mb-1.5 block tracking-widest">EMAIL</label>
+          <input type="email" id="loginEmail" class="input-neon" placeholder="ton@email.com" onkeydown="if(event.key==='Enter') handleLogin()">
+        </div>
+        <div>
+          <label class="text-xs text-[#4a5580] mb-1.5 block tracking-widest">MOT DE PASSE</label>
+          <input type="password" id="loginPassword" class="input-neon" placeholder="••••••••" onkeydown="if(event.key==='Enter') handleLogin()">
+        </div>
+        <button onclick="handleLogin()" id="loginBtn" class="btn-neon btn-neon-cyan w-full py-3 mt-2 text-xs tracking-widest">⚡ CONNECTER</button>
+        <div class="text-center pt-1">
+          <button onclick="showTab('reset')" class="font-mono text-[11px] text-[#4a5580] hover:text-[#00d4ff] transition-colors underline underline-offset-2">Mot de passe oublié ?</button>
+        </div>
+        <p id="loginError" class="text-[#ff2d78] text-xs hidden text-center font-mono"></p>
+      </div>
+      <!-- Inscription -->
+      <div id="formRegister" class="card space-y-4 hidden">
+        <div>
+          <label class="text-xs text-[#4a5580] mb-1.5 block tracking-widest">EMAIL</label>
+          <input type="email" id="regEmail" class="input-neon" placeholder="ton@email.com">
+        </div>
+        <div>
+          <label class="text-xs text-[#4a5580] mb-1.5 block tracking-widest">PSEUDO</label>
+          <input type="text" id="regUsername" class="input-neon" placeholder="ton_pseudo">
+        </div>
+        <div>
+          <label class="text-xs text-[#4a5580] mb-1.5 block tracking-widest">MOT DE PASSE</label>
+          <input type="password" id="regPassword" class="input-neon" placeholder="•••••••• (6 min)">
+        </div>
+        <button onclick="handleRegister()" class="btn-neon btn-neon-green w-full py-3 mt-2 text-xs tracking-widest">🚀 CRÉER MON COMPTE</button>
+        <p id="regError" class="text-[#ff2d78] text-xs hidden text-center font-mono"></p>
+        <p id="regSuccess" class="text-[#00ff88] text-xs hidden text-center font-mono"></p>
+      </div>
+      <!-- Mot de passe oublié -->
+      <div id="formReset" class="card space-y-4 hidden">
+        <div class="text-center mb-2">
+          <div class="text-3xl mb-2">🔑</div>
+          <p class="font-mono text-xs text-[#4a5580] leading-relaxed">Saisis ton email. On t'envoie un lien pour réinitialiser ton mot de passe.</p>
+        </div>
+        <div>
+          <label class="text-xs text-[#4a5580] mb-1.5 block tracking-widest">EMAIL</label>
+          <input type="email" id="resetEmail" class="input-neon" placeholder="ton@email.com" onkeydown="if(event.key==='Enter') handleForgotPassword()">
+        </div>
+        <button onclick="handleForgotPassword()" id="resetBtn" class="btn-neon btn-neon-cyan w-full py-3 text-xs tracking-widest">📧 ENVOYER LE LIEN</button>
+        <p id="resetError" class="text-[#ff2d78] text-xs hidden text-center font-mono"></p>
+        <p id="resetSuccess" class="text-[#00ff88] text-xs hidden text-center font-mono"></p>
+        <div class="text-center pt-1">
+          <button onclick="showTab('login')" class="font-mono text-[11px] text-[#4a5580] hover:text-[#00d4ff] transition-colors">← Retour à la connexion</button>
+        </div>
+      </div>
+      <!-- Nouveau mot de passe -->
+      <div id="formNewPassword" class="card space-y-4 hidden">
+        <div class="text-center mb-2">
+          <div class="text-3xl mb-2">🔐</div>
+          <p class="font-mono text-xs text-[#4a5580] leading-relaxed">Choisis un nouveau mot de passe pour ton compte.</p>
+        </div>
+        <div>
+          <label class="text-xs text-[#4a5580] mb-1.5 block tracking-widest">NOUVEAU MOT DE PASSE</label>
+          <input type="password" id="newPassword" class="input-neon" placeholder="•••••••• (6 min)" onkeydown="if(event.key==='Enter') handleNewPassword()">
+        </div>
+        <div>
+          <label class="text-xs text-[#4a5580] mb-1.5 block tracking-widest">CONFIRMER</label>
+          <input type="password" id="newPasswordConfirm" class="input-neon" placeholder="••••••••" onkeydown="if(event.key==='Enter') handleNewPassword()">
+        </div>
+        <button onclick="handleNewPassword()" id="newPasswordBtn" class="btn-neon btn-neon-green w-full py-3 text-xs tracking-widest">✅ CHANGER MON MOT DE PASSE</button>
+        <p id="newPasswordError" class="text-[#ff2d78] text-xs hidden text-center font-mono"></p>
+        <p id="newPasswordSuccess" class="text-[#00ff88] text-xs hidden text-center font-mono"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <div id="mainApp" style="display:none; flex-direction:column; min-height:100vh;">
+
+    <!-- TOP BAR -->
+    <header class="h-14 flex items-center px-5 border-b border-[rgba(0,212,255,0.12)] bg-[#08081a] relative z-50 flex-shrink-0">
+      <div class="flex items-center gap-2 mr-auto">
+        <span class="font-pixel text-sm neon-text-cyan neon-flicker">NSI</span>
+        <span class="font-pixel text-sm neon-text-green">HUB</span>
+        <span class="font-mono text-[10px] text-[#3a4060] ml-2">v1.0</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="w-2 h-2 bg-[#00ff88] rounded-full animate-pulse"></span>
+        <span id="topUsername" class="font-mono text-sm text-[#6070a0]"></span>
+        <button id="adminBtn" onclick="toggleAdminMode()" class="hidden btn-admin font-pixel text-[9px] px-3 py-2 rounded-lg tracking-wide">🔓 MODE ADMIN</button>
+        <span id="adminBadge" class="hidden bg-[#ff2d78] text-black text-[9px] font-bold px-2.5 py-1 rounded-full font-pixel">👑 ADMIN</span>
+        <button id="themeBtn" onclick="toggleTheme()" title="Mode clair / sombre" class="btn-neon text-[13px] px-2.5 py-2 tracking-widest" style="min-width:36px;">🌙</button>
+        <button onclick="handleLogout()" class="btn-neon text-[10px] px-3 py-2 tracking-widest">DÉCO</button>
+      </div>
+    </header>
+
+    <!-- CORPS -->
+    <div style="display:flex; flex:1; overflow:hidden;">
+
+      <!-- SIDEBAR -->
+      <nav id="sidebar" class="bg-[#08081a] border-r border-[rgba(0,212,255,0.1)] flex flex-col py-5 px-3 gap-1.5 overflow-y-auto flex-shrink-0" style="width:220px;">
+        <div class="nav-item" onclick="showSection('snake')" data-section="snake"><span class="mr-2.5">🐍</span><span class="nav-label">Snake</span></div>
+        <div class="nav-item" onclick="showSection('leaderboard')" data-section="leaderboard"><span class="mr-2.5">🏆</span><span class="nav-label">Leaderboard</span></div>
+        <div class="nav-item" onclick="showSection('pranks')" data-section="pranks"><span class="mr-2.5">😈</span><span class="nav-label">Pranks</span></div>
+        <div class="nav-item" onclick="showSection('whiteboard')" data-section="whiteboard"><span class="mr-2.5">📝</span><span class="nav-label">Whiteboard</span></div>
+        <div class="nav-item" onclick="showSection('morpion')" data-section="morpion"><span class="mr-2.5">❌</span><span class="nav-label">Morpion</span></div>
+        <div class="nav-item" onclick="showSection('carte')" data-section="carte"><span class="mr-2.5">🌍</span><span class="nav-label">GéoDéfi</span></div>
+        <div class="nav-item" onclick="showSection('travail')" data-section="travail"><span class="mr-2.5">📂</span><span class="nav-label">Travail</span></div>
+        <div style="height:1px; background:rgba(0,212,255,0.08); margin:6px 4px;"></div>
+        <div class="nav-item" onclick="showSection('roulette')" data-section="roulette"><span class="mr-2.5">🎰</span><span class="nav-label">Roulette</span></div>
+        <div class="nav-item" onclick="showSection('blagues')" data-section="blagues"><span class="mr-2.5">😂</span><span class="nav-label">Blagues</span></div>
+        <div class="nav-item" onclick="showSection('chat')" data-section="chat">
+          <span class="mr-2.5">💬</span>
+          <span class="nav-label">Chat</span>
+          <span id="chatUnreadBadge" class="hidden ml-auto bg-[#ff2d78] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full font-pixel min-w-[18px] text-center">0</span>
+        </div>
+        <div class="nav-item" onclick="showSection('annonces')" data-section="annonces" id="navAnnonces"><span class="mr-2.5">📢</span><span class="nav-label">Annonces</span></div>
+      </nav>
+
+      <!-- CONTENU PRINCIPAL -->
+      <main style="flex:1; overflow:auto; padding:32px 24px; background:#05050f; display:flex; flex-direction:column; align-items:center;">
+        <div style="width:100%; max-width:860px;">
+
+        <!-- SNAKE -->
+        <section id="section-snake" class="section">
+          <h2 class="font-pixel text-lg neon-text-green mb-6">🐍 SNAKE</h2>
+          <div class="flex gap-6 flex-wrap items-start">
+            <div class="flex flex-col items-center gap-4">
+              <div class="flex gap-4">
+                <div class="card px-4 py-2.5 text-center">
+                  <div class="font-mono text-[10px] text-[#4a5580] mb-1 tracking-widest">SCORE</div>
+                  <div class="font-pixel text-base neon-text-green" id="snakeScore">0</div>
+                </div>
+                <div class="card px-4 py-2.5 text-center">
+                  <div class="font-mono text-[10px] text-[#4a5580] mb-1 tracking-widest">HIGH SCORE</div>
+                  <div class="font-pixel text-base neon-text-cyan" id="snakeHighScore">0</div>
+                </div>
+                <div class="card px-4 py-2.5 text-center">
+                  <div class="font-mono text-[10px] text-[#4a5580] mb-1 tracking-widest">NIVEAU</div>
+                  <div class="font-pixel text-base text-[#bf5af2]" id="snakeLevel">1</div>
+                </div>
+              </div>
+              <canvas id="snakeCanvas" width="480" height="480"></canvas>
+              <!-- ✅ UN SEUL BOUTON qui gère tout : démarrer / pause / reprendre -->
+              <div class="flex gap-3">
+                <button id="snakeStartBtn" onclick="pauseSnake()" class="btn-neon btn-neon-green px-8 py-2.5 text-xs tracking-widest">
+                  ▶ JOUER
+                </button>
+              </div>
+              <p class="font-mono text-[11px] text-[#3a4060]">Contrôles : ↑↓←→ ou WASD</p>
+            </div>
+            <div style="min-width:200px; flex:1;">
+              <div class="card">
+                <h3 class="font-mono text-xs text-[#4a5580] mb-4 tracking-widest">TOP 5 SCORES</h3>
+                <div id="snakeMiniLB" class="space-y-2.5">
+                  <p class="font-mono text-xs text-[#3a4060]">Chargement...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- LEADERBOARD -->
+        <section id="section-leaderboard" class="section">
+          <div class="flex items-center justify-between mb-6">
+            <h2 class="font-pixel text-lg neon-text-cyan">🏆 LEADERBOARD</h2>
+            <div class="flex items-center gap-2 card px-3 py-1.5">
+              <span class="w-2 h-2 bg-[#00ff88] rounded-full animate-pulse"></span>
+              <span class="font-mono text-xs text-[#00ff88] tracking-widest">LIVE</span>
+            </div>
+          </div>
+          <div class="card" style="max-width:640px;">
+            <table class="w-full">
+              <thead>
+                <tr class="border-b border-[rgba(0,212,255,0.15)]">
+                  <th class="font-mono text-[10px] text-[#4a5580] text-left py-2.5 px-3 tracking-widest">RANG</th>
+                  <th class="font-mono text-[10px] text-[#4a5580] text-left py-2.5 px-3 tracking-widest">JOUEUR</th>
+                  <th class="font-mono text-[10px] text-[#4a5580] text-right py-2.5 px-3 tracking-widest">SCORE</th>
+                  <th class="font-mono text-[10px] text-[#4a5580] text-right py-2.5 px-3 tracking-widest">DATE</th>
+                </tr>
+              </thead>
+              <tbody id="leaderboardBody">
+                <tr><td colspan="4" class="text-center font-mono text-xs text-[#3a4060] py-6">Chargement...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="font-mono text-[11px] text-[#3a4060] mt-3">⚡ Mise à jour auto toutes les 10s</p>
+        </section>
+
+        <!-- PRANKS -->
+        <section id="section-pranks" class="section">
+          <h2 class="font-pixel text-lg neon-text-pink mb-2">😈 PRANKS</h2>
+          <p class="font-mono text-xs text-[#4a5580] mb-6">
+            Pranks locaux sur ton écran.
+            <span id="adminPranksNote" class="hidden text-[#ff2d78]">👑 Mode admin actif → tu peux les envoyer à TOUT LE MONDE !</span>
+          </p>
+          <div class="grid grid-cols-1 gap-4" style="max-width:700px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));">
+            <div class="card prank-card">
+              <div class="flex items-center gap-2 mb-2"><span class="text-xl">🔄</span><h3 class="font-orbitron font-bold text-sm text-[#ff2d78]">ÉCRAN QUI TOURNE</h3></div>
+              <p class="font-mono text-xs text-[#4a5580] mb-4">Retourne l'écran à 180° pendant 10s.</p>
+              <div class="flex gap-2">
+                <button onclick="prankRotate(false)" class="btn-neon btn-neon-pink text-[10px] py-2 px-3 flex-1">Sur moi</button>
+                <button onclick="prankRotate(true)" id="rotateAdminBtn" class="btn-admin font-pixel text-[9px] py-2 px-3 flex-1 rounded-lg hidden">💀 Sur TOUS</button>
+              </div>
+            </div>
+            <div class="card prank-card">
+              <div class="flex items-center gap-2 mb-2"><span class="text-xl">🔃</span><h3 class="font-orbitron font-bold text-sm text-[#ff2d78]">INVERSION COMMANDES</h3></div>
+              <p class="font-mono text-xs text-[#4a5580] mb-4">Inverse les flèches clavier pendant 30s.</p>
+              <div class="flex gap-2">
+                <button onclick="prankInvert(false)" class="btn-neon btn-neon-pink text-[10px] py-2 px-3 flex-1">Sur moi</button>
+                <button onclick="prankInvert(true)" id="invertAdminBtn" class="btn-admin font-pixel text-[9px] py-2 px-3 flex-1 rounded-lg hidden">💀 Sur TOUS</button>
+              </div>
+            </div>
+            <div class="card prank-card">
+              <div class="flex items-center gap-2 mb-2"><span class="text-xl">💀</span><h3 class="font-orbitron font-bold text-sm text-[#ff2d78]">FAKE BSOD / VIRUS</h3></div>
+              <p class="font-mono text-xs text-[#4a5580] mb-3">Écran bleu de la mort Windows + message perso.</p>
+              <input type="text" id="bsodMessage" class="input-neon text-xs mb-3" placeholder="Message du BSOD..." value="Erreur fatale système détectée. Sauvegarde en cours...">
+              <div class="flex gap-2">
+                <button onclick="prankBSOD(false)" class="btn-neon btn-neon-pink text-[10px] py-2 px-3 flex-1">Sur moi</button>
+                <button onclick="prankBSOD(true)" id="bsodAdminBtn" class="btn-admin font-pixel text-[9px] py-2 px-3 flex-1 rounded-lg hidden">💀 Sur TOUS</button>
+              </div>
+            </div>
+            <div class="card prank-card">
+              <div class="flex items-center gap-2 mb-2"><span class="text-xl">🪟</span><h3 class="font-orbitron font-bold text-sm text-[#ff2d78]">FAUSSE ALERTE WINDOWS</h3></div>
+              <p class="font-mono text-xs text-[#4a5580] mb-3">Popup style Windows XP avec titre et texte perso.</p>
+              <div class="space-y-2 mb-3">
+                <input type="text" id="winTitle" class="input-neon text-xs" placeholder="Titre..." value="⚠️ Alerte : CPE en approche !">
+                <input type="text" id="winMessage" class="input-neon text-xs" placeholder="Message..." value="Un CPE a été détecté à 50m. Agissez immédiatement.">
+              </div>
+              <div class="flex gap-2">
+                <button onclick="prankWindows(false)" class="btn-neon btn-neon-pink text-[10px] py-2 px-3 flex-1">Sur moi</button>
+                <button onclick="prankWindows(true)" id="windowsAdminBtn" class="btn-admin font-pixel text-[9px] py-2 px-3 flex-1 rounded-lg hidden">💀 Sur TOUS</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ARSENAL ADMIN -->
+          <div id="adminOnlyPranks" class="hidden mt-8" style="max-width:700px;">
+            <div class="flex items-center gap-3 mb-5">
+              <div style="flex:1; height:1px; background:linear-gradient(90deg, transparent, rgba(255,45,120,0.5))"></div>
+              <span class="font-pixel text-[10px] text-[#ff2d78] tracking-widest px-2">👑 ARSENAL ADMIN</span>
+              <div style="flex:1; height:1px; background:linear-gradient(90deg, rgba(255,45,120,0.5), transparent)"></div>
+            </div>
+            <p class="font-mono text-[11px] text-[#ff2d78] mb-4 opacity-70">⚠️ Ces pranks sont uniquement visibles et utilisables par les admins. Ils sont toujours envoyés à TOUS.</p>
+            <div class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));">
+              <div class="card admin-prank-card">
+                <div class="flex items-center gap-2 mb-2"><span class="text-xl">🔵</span><h3 class="font-orbitron font-bold text-sm" style="color:#ff2d78">FAUSSE MAJ WINDOWS</h3><span class="admin-badge-pill">ADMIN</span></div>
+                <p class="font-mono text-xs text-[#4a5580] mb-4">Plein écran fake "Windows Update" qui bloque tout pendant 30s.</p>
+                <button onclick="prankWinUpdate()" class="btn-admin font-pixel text-[9px] py-2.5 px-4 rounded-lg w-full">💀 Envoyer à TOUS</button>
+              </div>
+              <div class="card admin-prank-card">
+                <div class="flex items-center gap-2 mb-2"><span class="text-xl">👁️</span><h3 class="font-orbitron font-bold text-sm" style="color:#ff2d78">CURSEUR INVISIBLE</h3><span class="admin-badge-pill">ADMIN</span></div>
+                <p class="font-mono text-xs text-[#4a5580] mb-4">La souris disparaît pendant 20s.</p>
+                <button onclick="prankHideCursor()" class="btn-admin font-pixel text-[9px] py-2.5 px-4 rounded-lg w-full">💀 Envoyer à TOUS</button>
+              </div>
+              <div class="card admin-prank-card">
+                <div class="flex items-center gap-2 mb-2"><span class="text-xl">🔍</span><h3 class="font-orbitron font-bold text-sm" style="color:#ff2d78">ZOOM PSYCHÉDÉLIQUE</h3><span class="admin-badge-pill">ADMIN</span></div>
+                <p class="font-mono text-xs text-[#4a5580] mb-4">La page pulse comme un cœur pendant 12s.</p>
+                <button onclick="prankZoom()" class="btn-admin font-pixel text-[9px] py-2.5 px-4 rounded-lg w-full">💀 Envoyer à TOUS</button>
+              </div>
+              <div class="card admin-prank-card">
+                <div class="flex items-center gap-2 mb-2"><span class="text-xl">📺</span><h3 class="font-orbitron font-bold text-sm" style="color:#ff2d78">RICKROLL</h3><span class="admin-badge-pill">ADMIN</span></div>
+                <p class="font-mono text-xs text-[#4a5580] mb-4">Plein écran YouTube "Never Gonna Give You Up".</p>
+                <button onclick="prankRickroll()" class="btn-admin font-pixel text-[9px] py-2.5 px-4 rounded-lg w-full">💀 Envoyer à TOUS</button>
+              </div>
+              <div class="card admin-prank-card">
+                <div class="flex items-center gap-2 mb-2"><span class="text-xl">🔊</span><h3 class="font-orbitron font-bold text-sm" style="color:#ff2d78">BIP INFERNAL</h3><span class="admin-badge-pill">ADMIN</span></div>
+                <p class="font-mono text-xs text-[#4a5580] mb-3">Séquence de bips aigus via Web Audio pendant 10s.</p>
+                <div class="flex items-center gap-3 mb-3">
+                  <span class="font-mono text-[10px] text-[#4a5580]">FRÉQUENCE</span>
+                  <input type="range" id="bipFreq" min="400" max="2000" value="880" class="flex-1 accent-[#ff2d78]">
+                  <span id="bipFreqVal" class="font-mono text-xs text-[#ff2d78] w-12">880Hz</span>
+                </div>
+                <button onclick="prankBeep()" class="btn-admin font-pixel text-[9px] py-2.5 px-4 rounded-lg w-full">💀 Envoyer à TOUS</button>
+              </div>
+              <div class="card admin-prank-card" style="grid-column: span 2;">
+                <div class="flex items-center gap-2 mb-2"><span class="text-xl">🦠</span><h3 class="font-orbitron font-bold text-sm" style="color:#ff2d78">VIRUS POPUP STORM</h3><span class="admin-badge-pill">ADMIN</span></div>
+                <p class="font-mono text-xs text-[#4a5580] mb-3">Spawne une vague de fausses fenêtres virus. Fermer une = deux nouvelles apparaissent. Dure 20s.</p>
+                <div class="flex items-center gap-4 mb-3 flex-wrap">
+                  <div class="flex items-center gap-2">
+                    <span class="font-mono text-[10px] text-[#4a5580]">INTENSITÉ</span>
+                    <input type="range" id="virusIntensity" min="1" max="5" value="3" class="w-24 accent-[#ff2d78]">
+                    <span id="virusIntensityVal" class="font-mono text-xs text-[#ff2d78] w-4">3</span>
+                  </div>
+                  <span class="font-mono text-[10px] text-[#3a4060]">1 = quelques fenêtres / 5 = chaos total</span>
+                </div>
+                <button onclick="prankVirus()" class="btn-admin font-pixel text-[9px] py-2.5 px-4 rounded-lg w-full">💀 LANCER LE VIRUS</button>
+              </div>
+              <div class="card admin-prank-card" style="grid-column: span 2; border-left-color: rgba(255, 214, 10, 0.7) !important; background: rgba(255, 214, 10, 0.03) !important;">
+                <div class="flex items-center gap-2 mb-2"><span class="text-xl">☠️</span><h3 class="font-orbitron font-bold text-sm" style="color:#ffd60a">TERMINER TOUTES LES PARTIES</h3><span class="admin-badge-pill" style="background:linear-gradient(135deg,#ffd60a,#b89000); color:#000;">ADMIN</span></div>
+                <p class="font-mono text-xs text-[#4a5580] mb-4">Déclenche un game over instantané sur <strong style="color:#ffd60a">toutes les parties de Snake en cours</strong>. Score perdu, pas de popup.</p>
+                <button onclick="killAllSnake()" class="font-pixel text-[9px] py-2.5 px-4 rounded-lg w-full" style="background:linear-gradient(135deg,#ffd60a,#b89000); color:#000; border:none; cursor:pointer; animation: pulseAdmin 2s infinite; font-weight:700;">☠️ GAME OVER POUR TOUS</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- WHITEBOARD -->
+        <section id="section-whiteboard" class="section">
+          <h2 class="font-pixel text-lg neon-text-cyan mb-4">📝 WHITEBOARD</h2>
+
+          <!-- Barre d'outils -->
+          <div class="flex items-center gap-2 mb-3 flex-wrap">
+            <!-- Couleur -->
+            <input type="color" id="wbColor" value="#ff2d78"
+              class="w-8 h-8 rounded cursor-pointer bg-transparent border-0 p-0" title="Couleur">
+            <!-- Taille -->
+            <input type="range" id="wbSize" min="1" max="40" value="5" class="w-20 accent-[#00d4ff]">
+            <span id="wbSizeVal" class="font-mono text-xs text-[#00d4ff] w-5">5</span>
+            <!-- Outils dessin -->
+            <button onclick="setTool('pen')" class="btn-neon text-[10px] px-3 py-2 tracking-widest">✏️ CRAYON</button>
+            <button onclick="toggleEraser()" id="eraserBtn" class="btn-neon text-[10px] px-3 py-2 tracking-widest">🗑 GOMME</button>
+            <button onclick="setTool('select')" id="wbSelectBtn" class="btn-neon text-[10px] px-3 py-2 tracking-widest" title="Sélectionner/déplacer une image">🖱 SÉLECT.</button>
+
+            <div style="width:1px;height:24px;background:rgba(255,255,255,0.1);margin:0 2px;"></div>
+
+            <!-- Import image -->
+            <button onclick="openWsPickerForWhiteboard()" class="btn-neon btn-neon-purple text-[10px] px-3 py-2 tracking-widest" title="Importer depuis le Workspace">📂 IMPORTER</button>
+            <label class="btn-neon text-[10px] px-3 py-2 tracking-widest cursor-pointer" title="Importer depuis ton PC">
+              🖼 DEPUIS PC
+              <input type="file" accept="image/*" class="hidden" onchange="wbLoadLocalImage(event)">
+            </label>
+            <span class="font-mono text-[9px] text-[#3a4060]">ou Ctrl+V</span>
+
+            <div style="width:1px;height:24px;background:rgba(255,255,255,0.1);margin:0 2px;"></div>
+
+            <!-- Actions -->
+            <button onclick="saveWhiteboardToWorkspace()" class="btn-neon btn-neon-cyan text-[10px] px-3 py-2 tracking-widest" title="Sauvegarder dans un dossier Workspace">💾 ENREGISTRER</button>
+            <button onclick="downloadWhiteboard()" class="btn-neon btn-neon-green text-[10px] px-3 py-2 tracking-widest">⬇️ PNG</button>
+            <button onclick="clearWhiteboard()" class="btn-neon btn-neon-pink text-[10px] px-3 py-2 tracking-widest">🗑 EFFACER</button>
+
+            <div class="flex items-center gap-2 ml-auto card px-3 py-1.5">
+              <span class="w-2 h-2 bg-[#00ff88] rounded-full animate-pulse"></span>
+              <span class="font-mono text-[10px] text-[#00ff88] tracking-widest">LIVE</span>
+            </div>
+          </div>
+
+          <!-- Tip sélection -->
+          <p id="wbSelectTip" class="hidden font-mono text-[10px] text-[#bf5af2] mb-2">
+            🖱 Mode sélection — clique sur une image pour la déplacer / redimensionner par les coins
+          </p>
+
+          <div class="rounded-xl overflow-hidden border border-[rgba(0,212,255,0.2)]"
+            style="box-shadow:0 0 30px rgba(0,212,255,0.1); position:relative;">
+            <!-- Canvas des traits (bas) -->
+            <canvas id="strokeCanvas" width="900" height="520"
+              style="display:block; background:white; width:100%; max-width:900px; height:auto;"></canvas>
+            <!-- Canvas des images (haut, transparent, reçoit les événements) -->
+            <canvas id="imageCanvas" width="900" height="520"
+              style="position:absolute; top:0; left:0; width:100%; height:100%; cursor:crosshair;"></canvas>
+          </div>
+        </section>
+
+        <!-- MORPION -->
+        <section id="section-morpion" class="section">
+          <h2 class="font-pixel text-lg neon-text-purple mb-6">❌ MORPION</h2>
+
+          <!-- LOBBY : créer / rejoindre un salon -->
+          <div id="tttLobby" style="max-width:480px;">
+            <div class="grid gap-4" style="grid-template-columns:1fr 1fr;">
+
+              <!-- Créer un salon -->
+              <div class="card text-center" style="border-color:rgba(0,212,255,0.25);">
+                <div class="text-4xl mb-3">🎮</div>
+                <h3 class="font-orbitron font-bold text-sm neon-text-cyan mb-2">CRÉER UN SALON</h3>
+                <p class="font-mono text-xs text-[#4a5580] mb-4 leading-relaxed">Tu reçois un code à 4 chiffres à partager à ton adversaire.</p>
+                <button onclick="createTTTRoom()" class="btn-neon btn-neon-cyan w-full py-3 font-pixel text-[9px] tracking-widest">
+                  ✚ CRÉER
+                </button>
+              </div>
+
+              <!-- Rejoindre un salon -->
+              <div class="card text-center" style="border-color:rgba(191,90,242,0.25);">
+                <div class="text-4xl mb-3">🔑</div>
+                <h3 class="font-orbitron font-bold text-sm neon-text-purple mb-2">REJOINDRE</h3>
+                <p class="font-mono text-xs text-[#4a5580] mb-3 leading-relaxed">Entre le code à 4 chiffres donné par ton adversaire.</p>
+                <input type="text" id="tttCodeInput" class="input-neon text-center font-pixel text-sm mb-3 tracking-[0.3em]"
+                  placeholder="1234" maxlength="4" style="letter-spacing:0.3em;"
+                  onkeydown="if(event.key==='Enter') joinTTTRoom()">
+                <button onclick="joinTTTRoom()" class="btn-neon btn-neon-purple w-full py-3 font-pixel text-[9px] tracking-widest">
+                  ➤ REJOINDRE
+                </button>
+              </div>
+
+            </div>
+
+            <!-- Règles -->
+            <div class="card mt-4">
+              <h3 class="font-orbitron font-bold text-xs text-[#4a5580] mb-3 tracking-widest">COMMENT JOUER</h3>
+              <div class="space-y-2 font-mono text-xs text-[#3a4060]">
+                <p><span class="text-[#00d4ff]">1.</span> Un joueur crée un salon et récupère le code</p>
+                <p><span class="text-[#00d4ff]">2.</span> L'adversaire entre le code pour rejoindre</p>
+                <p><span class="text-[#00d4ff]">3.</span> Le créateur joue en <span class="neon-text-cyan">✕</span>, l'autre en <span class="neon-text-pink">○</span></p>
+                <p><span class="text-[#00d4ff]">4.</span> Aligne 3 symboles pour gagner !</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- JEU : affiché après avoir rejoint un salon -->
+          <div id="tttGame" class="hidden" style="max-width:480px;">
+            <!-- Info salon -->
+            <div class="flex items-center justify-between mb-4">
+              <div class="card px-4 py-2 flex items-center gap-3">
+                <span class="font-mono text-[10px] text-[#4a5580] tracking-widest">CODE SALON</span>
+                <span id="tttRoomCode" class="font-pixel text-base neon-text-cyan tracking-[0.2em]"></span>
+              </div>
+              <button onclick="leaveTTTRoom()" class="btn-neon btn-neon-pink text-[10px] px-3 py-2">
+                ✕ QUITTER
+              </button>
+            </div>
+
+            <!-- Joueurs -->
+            <div class="flex gap-3 mb-4">
+              <div class="card flex-1 text-center py-3">
+                <div class="text-xl mb-1 neon-text-cyan">✕</div>
+                <div id="playerX" class="font-mono text-xs text-[#6070a0] truncate">(libre)</div>
+                <div class="font-mono text-[9px] text-[#3a4060] mt-1">JOUEUR X</div>
+              </div>
+              <div class="card flex-1 text-center py-3">
+                <div class="text-xl mb-1 neon-text-pink">○</div>
+                <div id="playerO" class="font-mono text-xs text-[#6070a0] truncate">(libre)</div>
+                <div class="font-mono text-[9px] text-[#3a4060] mt-1">JOUEUR O</div>
+              </div>
+            </div>
+
+            <!-- Statut -->
+            <div class="card px-4 py-3 text-center mb-4">
+              <p id="tttStatus" class="font-mono text-sm text-[#4a5580]">En attente...</p>
+            </div>
+
+            <!-- Plateau -->
+            <div id="tttBoard" class="grid gap-2 mb-4" style="grid-template-columns: repeat(3, 1fr);"></div>
+
+            <!-- Boutons -->
+            <div class="flex gap-3">
+              <button onclick="newTTTGame()" class="btn-neon btn-neon-green flex-1 py-2.5 text-xs tracking-widest">
+                🔄 NOUVELLE PARTIE
+              </button>
+              <button onclick="leaveTTTRoom()" class="btn-neon btn-neon-pink px-5 py-2.5 text-xs tracking-widest">
+                ✕ QUITTER
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- CHAT -->
+        <section id="section-chat" class="section">
+          <div class="flex items-center justify-between mb-5">
+            <h2 class="font-pixel text-lg neon-text-cyan">💬 CHAT</h2>
+            <div class="flex items-center gap-2">
+              <span id="chatOnlineCount" class="font-mono text-xs text-[#4a5580]"></span>
+              <span class="w-2 h-2 bg-[#00ff88] rounded-full animate-pulse"></span>
+              <span class="font-mono text-[10px] text-[#00ff88] tracking-widest">LIVE</span>
+            </div>
+          </div>
+          <div style="max-width:680px; display:flex; flex-direction:column; height:calc(100vh - 220px); min-height:400px;">
+            <div id="chatMessages" class="card flex-1 overflow-y-auto mb-3 p-4 space-y-3" style="scrollbar-width:thin; scroll-behavior:smooth;">
+              <p class="font-mono text-xs text-[#3a4060] text-center py-4">Chargement des messages...</p>
+            </div>
+            <div class="flex gap-2">
+              <input type="text" id="chatInput" class="input-neon flex-1" placeholder="Écris un message..." maxlength="300" onkeydown="if(event.key==='Enter') sendChatMessage()">
+              <button onclick="sendChatMessage()" class="btn-neon btn-neon-cyan px-4 py-2.5 text-xs tracking-widest flex-shrink-0">ENVOYER ➤</button>
+            </div>
+            <p class="font-mono text-[10px] text-[#3a4060] mt-1.5">Les messages sont visibles par tous les membres connectés.</p>
+          </div>
+        </section>
+
+        <!-- ANNONCES -->
+        <section id="section-annonces" class="section">
+          <div class="flex items-center justify-between mb-5">
+            <h2 class="font-pixel text-lg neon-text-pink">📢 ANNONCES</h2>
+            <span class="font-mono text-[10px] text-[#4a5580]">Messages admin → tous les membres</span>
+          </div>
+          <div id="adminAnnounceForm" class="hidden card mb-6" style="max-width:600px; border-color:rgba(255,45,120,0.3); background:rgba(255,45,120,0.03);">
+            <div class="flex items-center gap-2 mb-4"><span class="text-lg">👑</span><h3 class="font-orbitron font-bold text-sm text-[#ff2d78] tracking-wide">ENVOYER UNE ANNONCE</h3></div>
+            <div class="flex gap-2 mb-4 flex-wrap">
+              <button onclick="setAnnounceType('info')"    id="aTypeInfo"    class="announce-type-btn active-type font-pixel text-[9px] px-3 py-1.5 rounded-lg">ℹ️ INFO</button>
+              <button onclick="setAnnounceType('warning')" id="aTypeWarning" class="announce-type-btn font-pixel text-[9px] px-3 py-1.5 rounded-lg">⚠️ ALERTE</button>
+              <button onclick="setAnnounceType('success')" id="aTypeSuccess" class="announce-type-btn font-pixel text-[9px] px-3 py-1.5 rounded-lg">✅ SUCCÈS</button>
+              <button onclick="setAnnounceType('danger')"  id="aTypeDanger"  class="announce-type-btn font-pixel text-[9px] px-3 py-1.5 rounded-lg">🚨 URGENT</button>
+            </div>
+            <input type="text" id="announceTitleInput" class="input-neon text-sm mb-2" placeholder="Titre de l'annonce..." maxlength="80">
+            <textarea id="announceBodyInput" class="input-neon text-xs mb-4" rows="3" placeholder="Corps du message... (optionnel)" maxlength="400" style="resize:vertical; min-height:70px;"></textarea>
+            <div class="flex items-center gap-3">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="announceFullscreen" checked class="accent-[#ff2d78]">
+                <span class="font-mono text-xs text-[#4a5580]">Afficher en plein écran sur tous les écrans</span>
+              </label>
+              <button onclick="sendAnnouncement()" class="btn-admin font-pixel text-[9px] py-2.5 px-5 rounded-lg ml-auto">📢 ENVOYER À TOUS</button>
+            </div>
+          </div>
+          <div style="max-width:100%;">
+            <h3 class="font-mono text-[11px] text-[#4a5580] tracking-widest mb-4">HISTORIQUE</h3>
+            <div id="announceHistory" class="space-y-3">
+              <p class="font-mono text-xs text-[#3a4060]">Chargement...</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ROULETTE -->
+        <section id="section-roulette" class="section">
+          <div class="flex items-center justify-between mb-6">
+            <h2 class="font-pixel text-lg neon-text-pink">🎰 ROULETTE RUSSE</h2>
+            <div id="rouletteOnline" class="font-mono text-xs text-[#4a5580]"></div>
+          </div>
+          <div style="max-width:680px;">
+            <div class="card mb-4 text-center" style="border-color:rgba(255,45,120,0.25);">
+              <div id="rouletteWheel" class="roulette-wheel mx-auto mb-6">
+                <div class="roulette-inner">
+                  <span id="rouletteWheelText" class="font-pixel text-xs neon-text-pink">?</span>
+                </div>
+              </div>
+              <div id="rouletteResult" class="mb-5 min-h-[60px] flex items-center justify-center">
+                <p class="font-mono text-sm text-[#4a5580]">Lance la roulette pour désigner une victime...</p>
+              </div>
+              <div id="rouletteGageBox" class="hidden card mb-4 text-left" style="border-color:rgba(255,214,10,0.3); background:rgba(255,214,10,0.04);">
+                <p class="font-mono text-[10px] text-[#ffd60a] tracking-widest mb-1">⚡ GAGE EN COURS</p>
+                <p id="rouletteGageText" class="font-orbitron font-bold text-sm gage-text"></p>
+              </div>
+              <div class="flex gap-3 justify-center flex-wrap">
+                <button onclick="spinRoulette()" id="rouletteSpinBtn" class="btn-neon btn-neon-pink px-8 py-3 font-pixel text-[10px] tracking-widest">🎰 TOURNER</button>
+                <button onclick="spinRouletteWithPrank()" id="roulettePrankBtn" class="hidden btn-admin font-pixel text-[9px] px-5 py-3 rounded-lg">💀 TOURNER + PRANK AUTO</button>
+              </div>
+              <p class="font-mono text-[10px] text-[#3a4060] mt-3">Tire au sort un joueur parmi tous les connectés</p>
+            </div>
+            <div id="rouletteAdminGages" class="hidden card" style="border-color:rgba(255,45,120,0.2); background:rgba(255,45,120,0.02);">
+              <div class="flex items-center gap-2 mb-4"><span class="text-lg">👑</span><h3 class="font-orbitron font-bold text-sm text-[#ff2d78]">GESTION DES GAGES</h3><span class="admin-badge-pill">ADMIN</span></div>
+              <div id="rouletteGageList" class="space-y-2 mb-3 max-h-48 overflow-y-auto"></div>
+              <div class="flex gap-2">
+                <input type="text" id="rouletteNewGage" class="input-neon text-xs flex-1" placeholder="Ajouter un gage..." maxlength="120">
+                <button onclick="addRouletteGage()" class="btn-neon btn-neon-pink text-[10px] px-3 py-2 flex-shrink-0">+ AJOUTER</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- BLAGUES -->
+        <section id="section-blagues" class="section">
+          <div class="flex items-center justify-between mb-6">
+            <h2 class="font-pixel text-lg neon-text-yellow">😂 BLAGUES</h2>
+            <span class="font-mono text-[10px] text-[#4a5580]">Vote pour les meilleures !</span>
+          </div>
+          <div style="max-width:100%;">
+            <div id="blagueCard" class="card mb-4 text-center" style="min-height:200px; border-color:rgba(255,214,10,0.2);">
+              <div id="blagueContent" class="flex flex-col items-center justify-center h-full py-6">
+                <p class="font-mono text-[10px] text-[#4a5580] animate-pulse">Chargement...</p>
+              </div>
+            </div>
+            <div class="flex gap-3 justify-center mb-6 flex-wrap">
+              <button onclick="nextBlague()" class="btn-neon btn-neon-green px-6 py-3 font-pixel text-[10px] tracking-widest">😂 SUIVANTE</button>
+              <button onclick="voteBlague(1)" id="btnUpvote" class="btn-neon btn-neon-yellow px-4 py-3 text-sm">👍 <span id="upvoteCount">0</span></button>
+              <button onclick="voteBlague(-1)" id="btnDownvote" class="btn-neon btn-neon-pink px-4 py-3 text-sm">👎 <span id="downvoteCount">0</span></button>
+              <button onclick="shareBlagueToChat()" class="btn-neon text-[10px] px-4 py-3 tracking-widest">💬 ENVOYER AU CHAT</button>
+            </div>
+            <div id="blagueAdminForm" class="hidden card" style="border-color:rgba(255,214,10,0.2); background:rgba(255,214,10,0.02);">
+              <div class="flex items-center gap-2 mb-3"><span class="text-lg">👑</span><h3 class="font-orbitron font-bold text-xs text-[#ffd60a]">AJOUTER UNE BLAGUE PERSO</h3><span class="admin-badge-pill" style="background:linear-gradient(135deg,#ffd60a,#b89000);color:#000;">ADMIN</span></div>
+              <textarea id="blagueAdminSetup" class="input-neon text-xs mb-2" rows="2" placeholder="Question / début de la blague..." maxlength="200" style="resize:none;"></textarea>
+              <textarea id="blagueAdminPunchline" class="input-neon text-xs mb-3" rows="2" placeholder="Réponse / chute..." maxlength="200" style="resize:none;"></textarea>
+              <button onclick="addAdminBlague()" class="btn-neon btn-neon-green text-[10px] px-4 py-2 w-full tracking-widest">+ AJOUTER DANS LA LISTE</button>
+            </div>
+            <div class="mt-6">
+              <h3 class="font-mono text-sm text-[#4a5580] tracking-widest mb-4">🏆 TOP BLAGUES DU GROUPE</h3>
+              <div id="blagueTopList" class="space-y-3"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== SECTION GÉODÉFI ===== -->
+        <section id="section-carte" class="section">
+          <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+            <div>
+              <h2 class="font-pixel text-lg neon-text-green">🌍 GÉODÉFI</h2>
+              <p class="font-mono text-xs text-[#4a5580] mt-1">L'admin cache un lieu, tout le monde doit le trouver sur la carte !</p>
+            </div>
+            <div id="geoOnline" class="font-mono text-xs text-[#4a5580]"></div>
+          </div>
+
+          <!-- Barre de statut de la partie -->
+          <div id="geoStatusBar" class="card mb-4 px-4 py-3 flex items-center gap-3 flex-wrap" style="border-color:rgba(0,255,136,0.2);">
+            <span id="geoStatusIcon" class="text-xl">⏳</span>
+            <span id="geoStatusText" class="font-mono text-sm text-[#4a5580] flex-1">Aucune partie en cours. Attends qu'un admin lance un défi !</span>
+            <span id="geoRoundBadge" class="hidden font-pixel text-[9px] neon-text-cyan"></span>
+          </div>
+
+          <!-- Carte Leaflet -->
+          <div class="rounded-xl overflow-hidden mb-4" style="border:2px solid rgba(0,255,136,0.25); box-shadow:0 0 30px rgba(0,255,136,0.08);">
+            <div id="geoMap" style="height:420px; width:100%; background:#0d1117;"></div>
+          </div>
+
+          <!-- Roue d'indice (apparaît quand une partie démarre) -->
+          <div id="geoHintSection" class="hidden"></div>
+
+          <!-- Instructions / résultat -->
+          <div id="geoInstruction" class="card mb-4 text-center py-4 hidden" style="border-color:rgba(0,212,255,0.25);">
+            <p class="font-mono text-sm text-[#00d4ff]">📍 Clique sur la carte pour placer ton pin, puis confirme !</p>
+          </div>
+
+          <div id="geoGuessBtn" class="hidden text-center mb-4">
+            <button onclick="confirmGeoGuess()" class="btn-neon btn-neon-green px-8 py-3 font-pixel text-[10px] tracking-widest">
+              📍 CONFIRMER MA POSITION
+            </button>
+          </div>
+
+          <!-- Résultats de la manche -->
+          <div id="geoResults" class="hidden card mb-4" style="border-color:rgba(255,214,10,0.25);">
+            <h3 class="font-mono text-[10px] text-[#ffd60a] tracking-widest mb-3">🏆 RÉSULTATS DE LA MANCHE</h3>
+            <div id="geoResultsList" class="space-y-2"></div>
+          </div>
+
+          <!-- Panel admin -->
+          <div id="geoAdminPanel" class="hidden card" style="border-color:rgba(255,45,120,0.3); background:rgba(255,45,120,0.02);">
+            <div class="flex items-center gap-2 mb-4">
+              <span class="text-lg">👑</span>
+              <h3 class="font-orbitron font-bold text-sm text-[#ff2d78]">LANCER UN DÉFI</h3>
+              <span class="admin-badge-pill">ADMIN</span>
+            </div>
+            <p class="font-mono text-xs text-[#4a5580] mb-4">
+              Clique sur la carte pour choisir le lieu secret, puis lance le défi. Les joueurs auront <strong class="text-[#ffd60a]">60 secondes</strong> pour placer leur pin.
+            </p>
+            <div class="flex items-center gap-3 mb-3 flex-wrap">
+              <span id="geoAdminPinStatus" class="font-mono text-xs text-[#3a4060]">📍 Aucun lieu sélectionné</span>
+              <div class="flex items-center gap-2 ml-auto">
+                <span class="font-mono text-[10px] text-[#4a5580]">TIMER</span>
+                <select id="geoTimer" class="input-neon text-xs py-1" style="width:auto; padding:6px 10px;">
+                  <option value="30">30s</option>
+                  <option value="60" selected>60s</option>
+                  <option value="90">90s</option>
+                  <option value="120">2min</option>
+                </select>
+              </div>
+            </div>
+            <div class="flex gap-3">
+              <button onclick="launchGeoChallenge()" id="geoLaunchBtn" disabled class="btn-admin font-pixel text-[9px] py-2.5 px-5 rounded-lg flex-1">
+                🚀 LANCER LE DÉFI
+              </button>
+              <button onclick="revealGeoAnswer()" id="geoRevealBtn" disabled class="btn-neon btn-neon-green font-pixel text-[9px] py-2.5 px-4 rounded-lg">
+                👁 RÉVÉLER
+              </button>
+              <button onclick="resetGeoChallenge()" class="btn-neon btn-neon-pink font-pixel text-[9px] py-2.5 px-4 rounded-lg">
+                🔄 RESET
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== SECTION TRAVAIL ===== -->
+        <section id="section-travail" class="section">
+          <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
+            <div>
+              <h2 class="font-pixel text-base neon-text-cyan">📂 ESPACE TRAVAIL</h2>
+              <p class="font-mono text-xs text-[#4a5580] mt-1">Fichiers partagés du groupe + lien Atrium</p>
+            </div>
+            <!-- Lien Atrium -->
+            <a href="https://atrium-sud.fr" target="_blank" rel="noopener"
+              class="btn-neon btn-neon-cyan px-4 py-2.5 text-[10px] font-pixel tracking-widest flex items-center gap-2 no-underline">
+              <span>🔗</span><span class="nav-label">ATRIUM-SUD.FR</span>
+            </a>
+          </div>
+
+          <!-- Formulaire créer dossier (admin) -->
+          <div id="travailAdminBar" class="hidden card mb-5" style="border-color:rgba(0,212,255,0.2); background:rgba(0,212,255,0.02); max-width:480px;">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="text-base">👑</span>
+              <span class="font-orbitron font-bold text-xs neon-text-cyan tracking-wide">CRÉER UN DOSSIER</span>
+            </div>
+            <div class="flex gap-2 mb-3">
+              <input type="text" id="newFolderName" class="input-neon text-sm flex-1"
+                placeholder="Nom du dossier..." maxlength="40"
+                onkeydown="if(event.key==='Enter') createFolder()">
+              <button onclick="createFolder()" class="btn-neon btn-neon-cyan text-[10px] px-4 flex-shrink-0 tracking-widest">
+                ➕ CRÉER
+              </button>
+            </div>
+            <!-- Option verrou -->
+            <label class="flex items-center gap-3 cursor-pointer mb-2">
+              <input type="checkbox" id="folderLockCheck" onchange="toggleLockFields()" class="accent-[#ffd60a]">
+              <span class="font-mono text-xs text-[#4a5580]">🔒 Verrouiller avec un code (non-admins)</span>
+            </label>
+            <div id="lockCodeRow" style="display:none;" class="flex gap-2 items-center">
+              <input type="text" id="folderLockCode" class="input-neon text-sm flex-1"
+                placeholder="Code d'accès (ex: 1234)..." maxlength="20">
+            </div>
+          </div>
+
+          <!-- Grille dossiers + fichiers -->
+          <div id="travailRoot" class="space-y-4">
+            <p class="font-mono text-xs text-[#3a4060] animate-pulse">Chargement...</p>
+          </div>
+
+          <!-- Modal upload fichiers -->
+          <div id="uploadModal" class="hidden fixed inset-0 z-[300] flex items-center justify-center"
+            style="background:rgba(0,0,0,0.8); backdrop-filter:blur(6px);">
+            <div class="card mx-4" style="max-width:440px; width:100%; border-color:rgba(0,212,255,0.3);">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="font-orbitron font-bold text-sm neon-text-cyan">
+                  📤 Déposer dans <span id="uploadFolderName" class="text-[#ffd60a]"></span>
+                </h3>
+                <button onclick="closeUploadModal()" class="text-[#4a5580] hover:text-[#ff2d78] text-lg leading-none">✕</button>
+              </div>
+              <!-- Drop zone -->
+              <div id="dropZone" class="rounded-xl border-2 border-dashed border-[rgba(0,212,255,0.3)] p-8 text-center mb-4 transition-all cursor-pointer"
+                onclick="document.getElementById('fileInput').click()"
+                ondragover="event.preventDefault(); this.style.borderColor='#00d4ff'"
+                ondragleave="this.style.borderColor='rgba(0,212,255,0.3)'"
+                ondrop="handleFileDrop(event)">
+                <div class="text-4xl mb-3">📁</div>
+                <p class="font-mono text-sm text-[#4a5580]">Glisse des fichiers ici</p>
+                <p class="font-mono text-xs text-[#3a4060] mt-1">ou clique pour sélectionner</p>
+                <p class="font-mono text-[10px] text-[#2e3855] mt-2">Images, PDF, Word, Excel, vidéos…</p>
+              </div>
+              <input type="file" id="fileInput" multiple class="hidden" onchange="handleFileSelect(event)">
+              <!-- Liste fichiers à uploader -->
+              <div id="uploadQueue" class="space-y-2 mb-4 max-h-40 overflow-y-auto"></div>
+              <div class="flex gap-3">
+                <button onclick="uploadFiles()" id="uploadBtn" class="btn-neon btn-neon-green flex-1 py-2.5 text-xs tracking-widest">
+                  ⬆️ ENVOYER
+                </button>
+                <button onclick="closeUploadModal()" class="btn-neon px-4 py-2.5 text-xs">
+                  Annuler
+                </button>
+              </div>
+              <div id="uploadProgress" class="hidden mt-3">
+                <div class="w-full bg-[rgba(0,212,255,0.1)] rounded-full h-2 overflow-hidden">
+                  <div id="uploadProgressBar" class="h-2 rounded-full transition-all" style="background:linear-gradient(90deg,#00d4ff,#00ff88); width:0%"></div>
+                </div>
+                <p id="uploadProgressText" class="font-mono text-[10px] text-[#4a5580] text-center mt-1"></p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal visionneuse image -->
+          <div id="imageViewer" class="hidden fixed inset-0 z-[301] flex items-center justify-center"
+            style="background:rgba(0,0,0,0.92);" onclick="closeImageViewer()">
+            <img id="imageViewerImg" src="" alt=""
+              style="max-width:90vw; max-height:90vh; border-radius:8px; box-shadow:0 0 40px rgba(0,212,255,0.2);">
+            <button onclick="closeImageViewer()" class="absolute top-4 right-4 text-white text-2xl font-bold opacity-60 hover:opacity-100">✕</button>
+          </div>
+        </section>
+
+        </div><!-- /wrapper centré -->
+      </main>
+    </div>
+  </div>
+
+  <!-- Overlay annonce plein écran -->
+  <div id="announceOverlay" class="hidden fixed inset-0 z-[99994] flex items-center justify-center" style="background:rgba(0,0,0,0.88); backdrop-filter:blur(8px);">
+    <div id="announceOverlayBox" class="announce-overlay-box mx-6" style="max-width:520px; width:100%; text-align:center;">
+      <div id="announceOverlayIcon" class="text-5xl mb-4">📢</div>
+      <div id="announceOverlayBadge" class="announce-overlay-badge mb-3">ANNONCE</div>
+      <h2 id="announceOverlayTitle" class="font-pixel text-xl mb-4 leading-relaxed"></h2>
+      <p id="announceOverlayBody" class="font-mono text-sm text-[#b0b8e0] mb-6 leading-relaxed"></p>
+      <div class="font-mono text-[10px] text-[#4a5580] mb-5" id="announceOverlayFrom"></div>
+      <button onclick="closeAnnounceOverlay()" class="btn-neon btn-neon-cyan px-8 py-3 font-pixel text-[10px] tracking-widest">✓ OK</button>
+    </div>
+  </div>
+
+  <!-- BOTTOM NAV mobile -->
+  <nav id="bottomNav">
+    <div class="bottom-nav-item" onclick="showSection('snake')"       data-section="snake"><span class="bn-icon">🐍</span><span class="bn-label">Snake</span></div>
+    <div class="bottom-nav-item" onclick="showSection('leaderboard')" data-section="leaderboard"><span class="bn-icon">🏆</span><span class="bn-label">Scores</span></div>
+    <div class="bottom-nav-item" onclick="showSection('pranks')"      data-section="pranks"><span class="bn-icon">😈</span><span class="bn-label">Pranks</span></div>
+    <div class="bottom-nav-item" onclick="showSection('whiteboard')"  data-section="whiteboard"><span class="bn-icon">📝</span><span class="bn-label">Board</span></div>
+    <div class="bottom-nav-item" onclick="showSection('morpion')"     data-section="morpion"><span class="bn-icon">❌</span><span class="bn-label">Morpion</span></div>
+    <div class="bottom-nav-item" onclick="showSection('carte')"       data-section="carte"><span class="bn-icon">🌍</span><span class="bn-label">GéoDéfi</span></div>
+    <div class="bottom-nav-item" onclick="showSection('travail')"     data-section="travail"><span class="bn-icon">📂</span><span class="bn-label">Travail</span></div>
+    <div class="bottom-nav-item" onclick="showSection('chat')"        data-section="chat"><span class="bn-icon">💬</span><span class="bn-label">Chat</span></div>
+    <div class="bottom-nav-item" onclick="showSection('annonces')"    data-section="annonces"><span class="bn-icon">📢</span><span class="bn-label">Annonces</span></div>
+    <div class="bottom-nav-item" onclick="showSection('roulette')"    data-section="roulette"><span class="bn-icon">🎰</span><span class="bn-label">Roulette</span></div>
+    <div class="bottom-nav-item" onclick="showSection('blagues')"     data-section="blagues"><span class="bn-icon">😂</span><span class="bn-label">Blagues</span></div>
+  </nav>
+
+  <!-- OVERLAYS ET POPUPS -->
+  <div id="scorePopup" class="hidden fixed inset-0 z-50 items-center justify-center" style="background:rgba(0,0,0,0.85); backdrop-filter:blur(6px);">
+    <div class="card text-center mx-4" style="max-width:360px; border-color: rgba(0,255,136,0.5); box-shadow:0 0 40px rgba(0,255,136,0.2);">
+      <h3 class="font-pixel text-lg neon-text-green mb-2">GAME OVER</h3>
+      <p class="font-mono text-xs text-[#4a5580] mb-4">Partie terminée !</p>
+      <div class="font-pixel text-4xl neon-text-cyan mb-1" id="popupScore">0</div>
+      <p class="font-mono text-sm text-[#6070a0] mb-6">points</p>
+      <div class="flex gap-3 justify-center">
+        <button onclick="saveScore()" class="btn-neon btn-neon-green px-6 py-3 text-xs tracking-widest">💾 SAUVEGARDER</button>
+        <button onclick="closeScorePopup()" class="btn-neon px-6 py-3 text-xs tracking-widest">❌ IGNORER</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="bsodOverlay" class="hidden fixed inset-0 z-[99999] items-center justify-center p-8" style="background:#0078d7;">
+    <div class="text-white text-center" style="font-family: 'Segoe UI', Tahoma, sans-serif; max-width:640px;">
+      <div style="font-size:80px; line-height:1; margin-bottom:24px;">:(</div>
+      <h2 style="font-size:24px; font-weight:600; margin-bottom:16px;">Votre PC a rencontré un problème et doit redémarrer.</h2>
+      <p id="bsodText" style="font-size:14px; margin-bottom:24px; opacity:0.85;">Erreur fatale système détectée.</p>
+      <div style="margin-bottom:24px;">
+        <div style="width:200px; height:4px; background:rgba(255,255,255,0.3); border-radius:2px; margin:0 auto; overflow:hidden;">
+          <div id="bsodBar" style="height:100%; background:white; border-radius:2px; width:0%; transition:width 0.3s;"></div>
+        </div>
+        <p style="font-size:12px; margin-top:8px; opacity:0.6;">Collecte des informations sur l'erreur...</p>
+      </div>
+      <p style="font-size:11px; opacity:0.5;">Code d'arrêt : CRITICAL_PROCESS_DIED</p>
+      <button onclick="closeBSOD()" style="margin-top:24px; background:white; color:#0078d7; font-weight:700; padding:10px 32px; border:none; border-radius:4px; cursor:pointer; font-size:14px;">🔄 Redémarrer</button>
+    </div>
+  </div>
+
+  <div id="winAlertOverlay" class="hidden fixed inset-0 z-[99998] items-center justify-center" style="background:rgba(0,0,0,0.5);">
+    <div class="win-modal" style="width:380px; box-shadow: 4px 4px 0 rgba(0,0,0,0.5);">
+      <div class="win-titlebar">
+        <span id="winAlertTitle">⚠️ Alerte système</span>
+        <button onclick="closeWinAlert()" class="win-close-btn">✕</button>
+      </div>
+      <div style="padding:20px; display:flex; gap:16px; align-items:flex-start;">
+        <div style="font-size:36px; flex-shrink:0;">⚠️</div>
+        <div>
+          <p id="winAlertMsg" style="font-family:Tahoma,Arial,sans-serif; font-size:13px; margin-bottom:16px; color:#000;">Message</p>
+          <div style="display:flex; gap:8px; justify-content:flex-end;">
+            <button onclick="closeWinAlert()" class="win-btn">OK</button>
+            <button onclick="closeWinAlert()" class="win-btn">Annuler</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="hidden fixed bottom-6 right-6 z-50 card font-mono text-sm py-3 px-5" style="max-width:320px; border-color: rgba(0,255,136,0.4); box-shadow:0 0 20px rgba(0,255,136,0.15);">
+    <span id="toastMsg"></span>
+  </div>
+
+  <div id="winUpdateOverlay" class="hidden fixed inset-0 z-[99997] flex-col items-center justify-center select-none" style="background:#000; color:#fff; font-family:'Segoe UI',sans-serif; cursor:none;">
+    <div style="text-align:center; max-width:580px; padding:40px;">
+      <svg width="72" height="72" viewBox="0 0 88 88" fill="none" style="margin:0 auto 20px; display:block;">
+        <rect x="4" y="4" width="36" height="36" fill="#f25022"/>
+        <rect x="48" y="4" width="36" height="36" fill="#7fba00"/>
+        <rect x="4" y="48" width="36" height="36" fill="#00a4ef"/>
+        <rect x="48" y="48" width="36" height="36" fill="#ffb900"/>
+      </svg>
+      <div style="font-size:28px; font-weight:300; margin-bottom:8px;">Windows Update</div>
+      <div style="font-size:14px; color:#aaa; margin-bottom:28px;">Mise à jour critique en cours d'installation...</div>
+      <div style="background:#333; border-radius:4px; height:6px; width:360px; margin:0 auto 12px; overflow:hidden;">
+        <div id="winUpdateBar" style="height:100%; border-radius:4px; background:linear-gradient(90deg,#0078d4,#00bcf2); width:0%; transition:width 0.4s;"></div>
+      </div>
+      <div id="winUpdatePct" style="font-size:13px; color:#aaa; margin-bottom:20px;">0%</div>
+      <div id="winUpdateStep" style="font-size:12px; color:#666;">Préparation de la mise à jour...</div>
+      <p style="font-size:11px; color:#555; margin-top:32px;">Ne pas éteindre votre ordinateur.</p>
+    </div>
+  </div>
+
+  <div id="rickrollOverlay" class="hidden fixed inset-0 z-[99996] flex items-center justify-center" style="background:rgba(0,0,0,0.96);">
+    <div style="position:relative; width:90vw; max-width:860px;">
+      <div style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:12px; box-shadow:0 0 60px rgba(255,45,120,0.4);">
+        <iframe id="rickrollFrame" width="100%" height="100%" style="position:absolute; top:0; left:0; width:100%; height:100%; border:0; border-radius:12px;" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+      </div>
+      <button onclick="closeRickroll()" style="position:absolute; top:-14px; right:-14px; background:#ff2d78; color:white; border:none; border-radius:50%; width:36px; height:36px; font-size:16px; cursor:pointer; font-weight:bold;">✕</button>
+    </div>
+  </div>
+
+  <!-- SCRIPTS -->
+  <script src="supabase-config.js"></script>
+  <script src="app.js"></script>
+  <script src="snake.js"></script>
+  <script src="leaderboard.js"></script>
+  <script src="pranks.js"></script>
+  <script src="whiteboard.js"></script>
+  <script src="tictactoe.js"></script>
+  <script src="chat.js"></script>
+  <script src="announce.js"></script>
+  <script src="roulette.js"></script>
+  <script src="blagues.js"></script>
+  <script src="map.js"></script>
+  <script src="workspace.js"></script>
+
+</body>
+</html>
