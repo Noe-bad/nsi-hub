@@ -42,7 +42,7 @@ const WB = {
   MAX_HISTORY: 40,
 };
 
-const H = 10; // demi-taille des handles (px canvas)
+const WB_HANDLE = 10; // demi-taille des handles (px canvas)
 
 // ─── Init ─────────────────────────────────────────────────────
 function initWhiteboard() {
@@ -263,10 +263,10 @@ function drawHandles(img) {
   // 4 handles aux coins
   for (const [hx, hy] of Object.values(handlePos(img))) {
     ctx.fillStyle   = '#00d4ff';
-    ctx.fillRect(hx - H, hy - H, H * 2, H * 2);
+    ctx.fillRect(hx - WB_HANDLE, hy - WB_HANDLE, WB_HANDLE * 2, WB_HANDLE * 2);
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth   = 1.5;
-    ctx.strokeRect(hx - H, hy - H, H * 2, H * 2);
+    ctx.strokeRect(hx - WB_HANDLE, hy - WB_HANDLE, WB_HANDLE * 2, WB_HANDLE * 2);
   }
   ctx.restore();
 }
@@ -283,7 +283,7 @@ function handlePos(img) {
 
 function hitHandle(x, y, img) {
   for (const [key, [hx, hy]] of Object.entries(handlePos(img))) {
-    if (Math.abs(x - hx) <= H + 2 && Math.abs(y - hy) <= H + 2) return key;
+    if (Math.abs(x - hx) <= WB_HANDLE + 2 && Math.abs(y - hy) <= WB_HANDLE + 2) return key;
   }
   return null;
 }
