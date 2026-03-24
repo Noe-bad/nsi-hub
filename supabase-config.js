@@ -14,7 +14,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_5PZu2gneRYrOzynDccYS-Q_i_s1-KPb';
 // ================================================================
 const ADMIN_EMAILS = [
   'noelt3309@gmail.com',
-  'admin2@gmail.com'       // ← 🔧 Remplace par le vrai 2ème email admin
+  'silvestre.arthur1111@gmail.com'       // ← 🔧 Remplace par le vrai 2ème email admin
 ];
 
 // ================================================================
